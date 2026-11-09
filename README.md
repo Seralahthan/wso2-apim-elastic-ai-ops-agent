@@ -122,7 +122,7 @@ helm repo update
 Run the installer with bash 4.4 or newer. macOS's built-in `/bin/bash` is 3.2 and stops at step 7 with `unbound variable`; after `brew install bash`, make sure `bash --version` shows 5.x:
 
 ```bash
-AMP_REGISTRY_USERNAME=<your WSO2 email> bash k3d-install-subscription.sh
+AMP_REGISTRY_USERNAME=<your WSO2 email> bash k3d-install-subscription.sh --project wso2-agent-manager --version 2026.11.0
 ```
 
 It prompts for your registry password (hidden), takes 15 to 20 minutes, and creates a k3d cluster called `amp-local`. If a step fails, fix the cause and run it again; it resumes where it stopped.
