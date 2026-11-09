@@ -33,7 +33,8 @@ elastic-agent/testset.txt the ten questions used to check the agent
 - Docker with around 8 GB of memory for this compose file (it used about 6.3 GB in testing; Agent Manager needs its own k3d cluster on top)
 - Python 3.10+ (scripts use the standard library only)
 - An Anthropic API key, or edit `elastic-agent/inference.py` for another Elastic inference provider
-- For the tracing part: WSO2 Agent Manager 2026.11.0, which needs a WSO2 subscription to pull from `registry.wso2.com`
+- For the tracing part: WSO2 Agent Manager 2026.11.0, which needs a WSO2 subscription to pull from `registry.wso2.com`, plus `k3d`, `kubectl`, `helm`, `gh` and bash 4.4 or newer (on macOS: `brew install bash`)
+- Free host ports: 9200, 5601, 9443, 8243, 8280 and 18080 for this compose file; 6550, 8080, 8443, 10082, 11080, 11082, 11085, 19080 and 19443 for Agent Manager
 
 ## Step 1: Start the stack
 
@@ -89,13 +90,52 @@ curl -u elastic:<ELASTIC_PASSWORD> -H 'kbn-xsrf: true' -H 'x-elastic-internal-or
   -X POST http://localhost:5601/internal/kibana/settings -d '{"changes":{"genAiSettings:defaultAIConnector":"anthropic-sonnet-5-5"}}'
 ```
 
+Optionally, show times in UTC so they line up with `traffic/incidents.jsonl` (Kibana otherwise uses the browser's timezone):
+
+```bash
+curl -u elastic:<ELASTIC_PASSWORD> -H 'kbn-xsrf: true' -H 'x-elastic-internal-origin: kibana' -H 'Content-Type: application/json' \
+  -X POST http://localhost:5601/internal/kibana/settings -d '{"changes":{"dateFormat:tz":"UTC"}}'
+```
+
 Open Kibana at http://localhost:5601, go to Agent Chat, pick "APIM Ops Agent" and ask one of the questions in `elastic-agent/testset.txt`. Or from the terminal:
 
 ```bash
 python3 elastic-agent/converse.py anthropic-sonnet-5-5 "When did the Payments 5xx errors start and stop?"
 ```
 
-## Step 4: Send the traces to WSO2 Agent Manager
+## Step 4: Install WSO2 Agent Manager 2026.11.0
+
+This can run while the traffic generator is running. Download the release assets and verify them:
+
+```bash
+mkdir -p ~/amp-install && cd ~/amp-install
+gh release download amp/v2026.11.0 -R wso2/agent-manager
+shasum -a 256 -c SHA256SUMS
+```
+
+Refresh Helm's repo cache first. The installer installs charts from Helm repos, and a stale cache for any repo already configured on your machine makes it fail with `no cached repo found`:
+
+```bash
+helm repo update
+```
+
+Run the installer with bash 4.4 or newer. macOS's built-in `/bin/bash` is 3.2 and stops at step 7 with `unbound variable`; after `brew install bash`, make sure `bash --version` shows 5.x:
+
+```bash
+AMP_REGISTRY_USERNAME=<your WSO2 email> bash k3d-install-subscription.sh
+```
+
+It prompts for your registry password (hidden), takes 15 to 20 minutes, and creates a k3d cluster called `amp-local`. If a step fails, fix the cause and run it again; it resumes where it stopped.
+
+When it finishes, open the Console at http://console.amp.localhost:8080 and sign in as `admin`. The installer prints the admin password, so don't keep that terminal output. To read it again:
+
+```bash
+kubectl get secret amp-admin-credentials -n amp-thunder -o jsonpath='{.data.password}' | base64 -d
+```
+
+To remove Agent Manager later: `k3d cluster delete amp-local`.
+
+## Step 5: Send the traces to WSO2 Agent Manager
 
 1. In the Agent Manager Console: **Add Agent → Externally-Hosted Agent**, give it a name, and copy the API key from the Setup Agent panel (it is shown only once).
 2. Put the key in `stack.secrets` as `AMP_AGENT_API_KEY`.
