@@ -1,0 +1,53 @@
+{
+  "index_patterns": [
+    "apim_event_*"
+  ],
+  "priority": 500,
+  "template": {
+    "mappings": {
+      "dynamic_templates": [
+        {
+          "strings_as_keyword": {
+            "match_mapping_type": "string",
+            "mapping": {
+              "type": "keyword",
+              "ignore_above": 1024
+            }
+          }
+        }
+      ],
+      "properties": {
+        "requestTimestamp": {
+          "type": "date"
+        },
+        "message": {
+          "type": "text"
+        },
+        "properties": {
+          "type": "object"
+        },
+        "backendLatency": {
+          "type": "long"
+        },
+        "responseLatency": {
+          "type": "long"
+        },
+        "requestMediationLatency": {
+          "type": "long"
+        },
+        "responseMediationLatency": {
+          "type": "long"
+        },
+        "proxyResponseCode": {
+          "type": "integer"
+        },
+        "targetResponseCode": {
+          "type": "integer"
+        },
+        "errorCode": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

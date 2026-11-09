@@ -1,0 +1,10 @@
+Which APIs had the most failures in the last 24 hours?
+Which API endpoints were the slowest in the last 24 hours?
+Is the Inventory API slow because of the backend or the gateway?
+Which consumers are being throttled, and on which APIs?
+When did the Payments 5xx errors start and stop?
+Was there a spike in authentication failures? If so, when?
+Which application sends the most traffic, and who owns it?
+Which applications were affected by the Payments backend errors?
+Give me an ops summary of the last 24 hours: what incidents happened, in time order?
+What is the CPU usage of the API gateway?

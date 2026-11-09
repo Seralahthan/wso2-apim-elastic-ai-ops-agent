@@ -1,0 +1,41 @@
+--- elk/patches/kibana-9.5.6/generate_title.original.js	2026-10-29 05:48:38
++++ elk/patches/kibana-9.5.6/generate_title.js	2026-11-07 15:54:40
+@@ -47,11 +47,33 @@
+     }
+   }, async span => {
+     var _nextInput$message;
+-    const structuredModel = chatModel.withStructuredOutput(_v.z.object({
+-      title: _v.z.string().describe('The title for the conversation')
+-    }).describe('Tool to use to provide the title for the conversation'), {
+-      name: 'set_title'
+-    });
++    // DEMO PATCH (Kibana 9.5.6 only; remove after upgrading). See elastic/kibana#299041.
++    // withStructuredOutput() forces the set_title tool (tool_choice "tool"), which Claude Sonnet 5.5 / Opus 5.5
++    // reject with HTTP 400. Bind the same tool with tool_choice "auto"; the system prompt below already
++    // tells the model it MUST call set_title. The parser keeps the original "no tool call" failure.
++    const titleModel = chatModel.bindTools([{
++      type: 'function',
++      function: {
++        name: 'set_title',
++        description: 'Tool to use to provide the title for the conversation',
++        parameters: {
++          type: 'object',
++          properties: { title: { type: 'string', description: 'The title for the conversation' } },
++          required: ['title'],
++          additionalProperties: false
++        }
++      }
++    }], { tool_choice: 'auto' });
++    const structuredModel = {
++      invoke: async input => {
++        const message = await titleModel.invoke(input);
++        const call = (message.tool_calls || []).find(tc => tc.name === 'set_title');
++        if (!call || typeof call.args?.title !== 'string') {
++          throw new Error('No set_title tool call found in the response.');
++        }
++        return call.args;
++      }
++    };
+     const prompt = [['system', `You are a title-generation utility. Your ONLY purpose is to create a short, relevant title for the provided conversation.
+ 
+ You MUST call the 'set_title' tool to provide the title. Do NOT respond with plain text or any other conversational language.

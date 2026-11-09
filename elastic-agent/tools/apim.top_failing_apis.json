@@ -1,0 +1,18 @@
+{
+  "id": "apim.top_failing_apis",
+  "type": "esql",
+  "description": "Rank APIs by failures in a time window: total calls, backend/server errors (5xx), auth failures, throttled calls and other client errors, with the 5xx error rate. Use for 'which APIs are failing', 'error rates', 'what is broken'.",
+  "tags": [
+    "apim",
+    "ops"
+  ],
+  "configuration": {
+    "query": "FROM apim_event_response, apim_event_faulty | WHERE DATE_DIFF(\"minute\", requestTimestamp, NOW()) <= ?lookback_minutes | STATS total=COUNT(*), errors_5xx=SUM(CASE(proxyResponseCode >= 500, 1, 0)), auth_failures=SUM(CASE(errorType == \"AUTH\", 1, 0)), throttled=SUM(CASE(errorType == \"THROTTLED\", 1, 0)), client_4xx=SUM(CASE(proxyResponseCode >= 400 AND proxyResponseCode < 500 AND errorType IS NULL, 1, 0)) BY apiName | EVAL error_rate_pct=ROUND(100.0 * errors_5xx / total, 2) | SORT errors_5xx DESC | LIMIT 20",
+    "params": {
+      "lookback_minutes": {
+        "type": "integer",
+        "description": "How far back to look, in minutes (e.g. 60 for the last hour, 1440 for a day)."
+      }
+    }
+  }
+}

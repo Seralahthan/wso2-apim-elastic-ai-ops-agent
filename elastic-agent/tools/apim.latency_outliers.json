@@ -1,0 +1,18 @@
+{
+  "id": "apim.latency_outliers",
+  "type": "esql",
+  "description": "Latency percentiles (p50/p95/p99/max, ms) per API resource (API + method + resource template) in a time window, slowest p95 first. Use for 'what is slow', 'latency outliers', 'p95/p99'.",
+  "tags": [
+    "apim",
+    "ops"
+  ],
+  "configuration": {
+    "query": "FROM apim_event_response | WHERE DATE_DIFF(\"minute\", requestTimestamp, NOW()) <= ?lookback_minutes | STATS calls=COUNT(*), p50_ms=PERCENTILE(responseLatency, 50), p95_ms=PERCENTILE(responseLatency, 95), p99_ms=PERCENTILE(responseLatency, 99), max_ms=MAX(responseLatency) BY apiName, apiMethod, apiResourceTemplate | EVAL p95_ms=ROUND(p95_ms), p99_ms=ROUND(p99_ms) | SORT p95_ms DESC | LIMIT 20",
+    "params": {
+      "lookback_minutes": {
+        "type": "integer",
+        "description": "How far back to look, in minutes (e.g. 60 for the last hour, 1440 for a day)."
+      }
+    }
+  }
+}

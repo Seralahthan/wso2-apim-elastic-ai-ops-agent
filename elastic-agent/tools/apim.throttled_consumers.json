@@ -1,0 +1,18 @@
+{
+  "id": "apim.throttled_consumers",
+  "type": "esql",
+  "description": "Applications (consumers) that were throttled (HTTP 429) in a time window: count, owner, API, throttle reason, first and last throttled call. Use for 'who is being throttled', 'rate limits hit', 'noisy consumers'.",
+  "tags": [
+    "apim",
+    "ops"
+  ],
+  "configuration": {
+    "query": "FROM apim_event_faulty | WHERE errorType == \"THROTTLED\" AND DATE_DIFF(\"minute\", requestTimestamp, NOW()) <= ?lookback_minutes | STATS throttled=COUNT(*), first_seen=MIN(requestTimestamp), last_seen=MAX(requestTimestamp) BY applicationName, applicationOwner, apiName, errorMessage | SORT throttled DESC | LIMIT 20",
+    "params": {
+      "lookback_minutes": {
+        "type": "integer",
+        "description": "How far back to look, in minutes (e.g. 60 for the last hour, 1440 for a day)."
+      }
+    }
+  }
+}

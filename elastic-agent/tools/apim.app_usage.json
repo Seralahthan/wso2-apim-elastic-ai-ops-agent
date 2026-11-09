@@ -1,0 +1,18 @@
+{
+  "id": "apim.app_usage",
+  "type": "esql",
+  "description": "Per-application traffic in a time window: calls, owner, number of APIs used, error and throttle counts, average latency. Use for 'top consumers', 'who calls what', 'usage by app'.",
+  "tags": [
+    "apim",
+    "ops"
+  ],
+  "configuration": {
+    "query": "FROM apim_event_response, apim_event_faulty | WHERE DATE_DIFF(\"minute\", requestTimestamp, NOW()) <= ?lookback_minutes AND applicationName IS NOT NULL | STATS calls=COUNT(*), apis_used=COUNT_DISTINCT(apiName), errors_5xx=SUM(CASE(proxyResponseCode >= 500, 1, 0)), throttled=SUM(CASE(errorType == \"THROTTLED\", 1, 0)), avg_latency_ms=AVG(responseLatency) BY applicationName, applicationOwner | EVAL avg_latency_ms=ROUND(avg_latency_ms, 1) | SORT calls DESC",
+    "params": {
+      "lookback_minutes": {
+        "type": "integer",
+        "description": "How far back to look, in minutes (e.g. 60 for the last hour, 1440 for a day)."
+      }
+    }
+  }
+}

@@ -1,0 +1,88 @@
+# APIM 4.7.0 -> apim_metrics.log -> Filebeat -> Logstash -> Elasticsearch <- Kibana (Agent Builder)
+# Secrets: copy stack.secrets.example to stack.secrets, fill it in, then
+#   docker compose --env-file stack.secrets up -d
+# stack.secrets is git-ignored; never commit it.
+name: apim-elastic
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.6
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - xpack.license.self_generated.type=trial   # 30-day trial: Agent Builder needs Enterprise features
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports: ["9200:9200"]
+    volumes: [esdata:/usr/share/elasticsearch/data]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u elastic:$$ELASTIC_PASSWORD localhost:9200/_cluster/health | grep -q -E 'green|yellow'"]
+      interval: 10s
+      retries: 30
+
+  # One-shot: kibana_system password + index template (strings -> keyword so ES|QL can group on them).
+  setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.6
+    depends_on: { elasticsearch: { condition: service_healthy } }
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - KIBANA_PASSWORD=${KIBANA_PASSWORD}
+    volumes: [./elk/index-template.json:/index-template.json:ro]
+    command: >
+      bash -c 'curl -sf -u elastic:$$ELASTIC_PASSWORD -H "Content-Type: application/json"
+      -X POST elasticsearch:9200/_security/user/kibana_system/_password -d "{\"password\":\"$$KIBANA_PASSWORD\"}" &&
+      curl -sf -u elastic:$$ELASTIC_PASSWORD -H "Content-Type: application/json"
+      -X PUT elasticsearch:9200/_index_template/apim_events -d @/index-template.json && echo setup-done'
+    restart: "no"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.5.6
+    depends_on: { setup: { condition: service_completed_successfully } }
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${KIBANA_ENCRYPTION_KEY}
+      - AMP_AGENT_API_KEY=${AMP_AGENT_API_KEY:-}
+    ports: ["5601:5601"]
+    volumes:
+      - ./elk/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+      # Optional patch for elastic/kibana#299041 (Kibana 9.5.6 only): conversation titles use tool_choice "auto".
+      # Build the patched file first (see README), then uncomment. Remove after upgrading Kibana.
+      # - ./elk/patches/kibana-9.5.6/generate_title.js:/usr/share/kibana/node_modules/@kbn/agent-builder-plugin/server/services/execution/utils/generate_title.js:ro
+    extra_hosts: ["default-default.gateway.localhost:host-gateway"]   # Agent Manager trace gateway on the host
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:9.5.6
+    depends_on: { setup: { condition: service_completed_successfully } }
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - LS_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.monitoring.enabled=false
+    volumes: [./elk/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro]
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:9.5.6
+    user: root
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    depends_on: [logstash, apim]
+    volumes:
+      - ./elk/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - apimlogs:/apim-logs:ro
+
+  backend:
+    image: python:3.12-slim
+    command: ["python", "/app/backend.py"]
+    volumes: [./backend/backend.py:/app/backend.py:ro]
+    ports: ["18080:8080"]   # host 18080: 8080 is often taken (e.g. by a local k3d cluster); APIM uses backend:8080 inside the network
+
+  apim:
+    image: wso2/wso2am:4.7.0
+    ports: ["9443:9443", "8243:8243", "8280:8280"]
+    volumes:
+      - ./apim/deployment.toml:/home/wso2carbon/wso2am-4.7.0/repository/conf/deployment.toml:ro
+      - apimlogs:/home/wso2carbon/wso2am-4.7.0/repository/logs
+
+volumes:
+  esdata:
+  apimlogs:

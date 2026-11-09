@@ -1,0 +1,9 @@
+stack.secrets
+*.secret
+traffic/apps.json
+traffic/incidents.jsonl
+traffic/*.log
+elk/patches/kibana-9.5.6/generate_title.js
+elk/patches/kibana-9.5.6/generate_title.original.js
+__pycache__/
+.DS_Store

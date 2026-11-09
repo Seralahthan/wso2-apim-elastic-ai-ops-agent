@@ -1,0 +1,13 @@
+# The image's default kibana.yml, plus Agent Builder trace export to WSO2 Agent Manager.
+# The key comes from the AMP_AGENT_API_KEY environment variable (set from stack.secrets); it is never written here.
+server.host: "0.0.0.0"
+server.shutdownTimeout: "5s"
+elasticsearch.hosts: [ "http://elasticsearch:9200" ]
+monitoring.ui.container.elasticsearch.enabled: true
+
+# OTLP/protobuf over HTTP to Agent Manager's trace gateway (external agent "Elastic APIM Ops Agent").
+# The hostname resolves to the Docker host through extra_hosts in docker-compose.yml.
+xpack.agentBuilder.tracing.exporters:
+  - url: "http://default-default.gateway.localhost:19080/otel/v1/traces"
+    headers:
+      x-amp-api-key: "${AMP_AGENT_API_KEY}"

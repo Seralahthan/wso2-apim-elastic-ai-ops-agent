@@ -1,0 +1,11 @@
+# APIM 4.7 ELK guide, Step 2 "Installing Filebeat", adapted for Filebeat 9:
+# the guide's `type: log` input is disabled in 9.0, so this uses `filestream` (same path, same include_lines).
+filebeat.inputs:
+  - type: filestream
+    id: apim-metrics
+    enabled: true
+    paths:
+      - /apim-logs/apim_metrics.log
+    include_lines: ['(apimMetrics):']
+output.logstash:
+  hosts: ["logstash:5044"]

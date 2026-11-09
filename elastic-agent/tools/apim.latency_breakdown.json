@@ -1,0 +1,18 @@
+{
+  "id": "apim.latency_breakdown",
+  "type": "esql",
+  "description": "Splits average response time per API into backend time and gateway mediation time, with backend p95. Use to tell whether slowness comes from the backend service or from the gateway.",
+  "tags": [
+    "apim",
+    "ops"
+  ],
+  "configuration": {
+    "query": "FROM apim_event_response | WHERE DATE_DIFF(\"minute\", requestTimestamp, NOW()) <= ?lookback_minutes | STATS calls=COUNT(*), avg_total_ms=AVG(responseLatency), avg_backend_ms=AVG(backendLatency), backend_p95_ms=PERCENTILE(backendLatency, 95), avg_gateway_ms=AVG(requestMediationLatency + responseMediationLatency) BY apiName | EVAL avg_total_ms=ROUND(avg_total_ms, 1), avg_backend_ms=ROUND(avg_backend_ms, 1), backend_p95_ms=ROUND(backend_p95_ms), avg_gateway_ms=ROUND(avg_gateway_ms, 1) | SORT avg_backend_ms DESC",
+    "params": {
+      "lookback_minutes": {
+        "type": "integer",
+        "description": "How far back to look, in minutes (e.g. 60 for the last hour, 1440 for a day)."
+      }
+    }
+  }
+}

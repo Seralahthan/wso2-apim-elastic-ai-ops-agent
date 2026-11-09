@@ -1,0 +1,18 @@
+{
+  "id": "apim.auth_failures",
+  "type": "esql",
+  "description": "Authentication failures (invalid, expired or missing tokens) in a time window, grouped by API, error code and message, with first and last occurrence. Use for 'auth errors', 'invalid tokens', 'possible credential abuse'.",
+  "tags": [
+    "apim",
+    "ops"
+  ],
+  "configuration": {
+    "query": "FROM apim_event_faulty | WHERE errorType == \"AUTH\" AND DATE_DIFF(\"minute\", requestTimestamp, NOW()) <= ?lookback_minutes | STATS failures=COUNT(*), first_seen=MIN(requestTimestamp), last_seen=MAX(requestTimestamp) BY apiName, errorCode, errorMessage | SORT failures DESC | LIMIT 20",
+    "params": {
+      "lookback_minutes": {
+        "type": "integer",
+        "description": "How far back to look, in minutes (e.g. 60 for the last hour, 1440 for a day)."
+      }
+    }
+  }
+}
