@@ -135,6 +135,17 @@ kubectl get secret amp-admin-credentials -n amp-thunder -o jsonpath='{.data.pass
 
 To remove Agent Manager later: `k3d cluster delete amp-local`.
 
+If the Console shows "Failed to fetch Trace List" after you stop and start the cluster (or reboot), k3s may have dropped `host.k3d.internal` from CoreDNS's host list on startup, so `*.localhost` names no longer resolve inside the cluster. Traces are still stored; only the list fails. This puts the entry back if it's missing (the list works again within a minute):
+
+```bash
+kubectl get cm coredns -n kube-system -o jsonpath='{.data.NodeHosts}' | grep -q host.k3d.internal || {
+  NH="$(kubectl get cm coredns -n kube-system -o jsonpath='{.data.NodeHosts}')"
+  IP="$(docker exec k3d-amp-local-server-0 awk '/host.k3d.internal/{print $1; exit}' /etc/hosts)"
+  kubectl create cm coredns -n kube-system --from-literal=NodeHosts="$NH
+$IP host.k3d.internal" --dry-run=client -o yaml | kubectl patch cm coredns -n kube-system --patch-file /dev/stdin
+}
+```
+
 ## Step 5: Send the traces to WSO2 Agent Manager
 
 1. In the Agent Manager Console: **Add Agent → Externally-Hosted Agent**, give it a name, and copy the API key from the Setup Agent panel (it is shown only once).
