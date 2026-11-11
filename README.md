@@ -15,6 +15,7 @@ WSO2 API Manager 4.7.0 -> apim_metrics.log -> Filebeat -> Logstash -> Elasticsea
 ## What's in here
 
 ```
+check-prereqs.sh          one-shot check of tools, versions, Docker memory and free ports
 docker-compose.yml        API Manager 4.7.0, Elastic Stack 9.5.6, mock backend
 apim/deployment.toml      API Manager config with ELK analytics enabled
 elk/                      Filebeat 9 (filestream), Logstash pipeline, index template, kibana.yml (trace export)
@@ -35,6 +36,12 @@ elastic-agent/testset.txt the ten questions used to check the agent
 - An Anthropic API key, or edit `elastic-agent/inference.py` for another Elastic inference provider
 - For the tracing part: WSO2 Agent Manager 2026.11.0, which needs a WSO2 subscription to pull from `registry.wso2.com`, plus `k3d`, `kubectl`, `helm`, `gh` and bash 4.4 or newer (on macOS: `brew install bash`)
 - Free host ports: 9200, 5601, 9443, 8243, 8280 and 18080 for this compose file; 6550, 8080, 8443, 10082, 11080, 11082, 11085, 19080 and 19443 for Agent Manager
+
+Check all of this in one go. Run it with `bash`, the same way the Agent Manager installer runs, so it checks the bash the installer will use. It only reads, changes nothing, and exits 0 when you're ready:
+
+```bash
+bash check-prereqs.sh
+```
 
 ## Step 1: Start the stack
 
